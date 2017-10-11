@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>寄云科技 | MQTT DEMO演示</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link href="bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css" />
+    <script src='mqttws31.min.js' type='text/javascript'></script>
+    <script src='jquery.min.js' type='text/javascript'></script>
+</head>
+
+<body>
+    <div class='container-fluid'>
+        <h3>寄云科技MQTT演示demo</h3>
+        <hr />
+        <div class='row'>
+            <div class="col-sm-4" style='border-right: 1px solid #ccc5c5;'>
+                <h4>连接配置 <span id='connect' class="glyphicon glyphicon-record text-danger" title="未连接" aria-hidden="true"></span></h4>
+                <form class='form-horizontal'>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">服务地址</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" name="ip" id="ip" value="mqtt.neuseer.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">端口</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" readonly name="port" id="port" value="8083">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">用户名</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" readonly name="username" id="username" value="uuPShO6G5v">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">密码</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" readonly name="password" id="password" value="Rkj06AhtXFXcJz2P">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">ClientID</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" name="clientId" id="clientId" value="uuPShO6G5v">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">Topic</label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" name="topic" id="topic" readonly value="publish_topic/xianjiyun_test">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-4 col-sm-8">
+                            <a onclick="myconnect();" id="connectBtn" class="btn btn-default ">连接</a>
+                            <a onclick="disconnect();" id="disConnectBtn" class="btn btn-default hidden">断开连接</a>
+                        </div>
+                    </div>
+                </form>
+                <h4>发送</h4>
+                <form class='form-horizontal'>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">随机值</label>
+                        <div class="col-sm-8" style="display:inline;">
+                            上限：<input type="number" style="display:inline; width: 120px;" class="form-control" name="random_2"
+                                id="random_2" value="0">&nbsp;&nbsp; 下限：
+                            <input type="number" style="display:inline; width: 120px;" class="form-control" name="random_1" id="random_1" value="0">
+                        </div>
+                    </div>
+                    <div id="add-div"></div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-4 col-sm-8">
+                            <input type='file' onchange="importData(this.files)">
+                            <a onclick="addValue();" class="btn btn-default">添加数据</a>
+                            <a onclick="startSend();" class="btn btn-default">发送</a>
+                            <a onclick="stopSend();" class="btn btn-default">停止</a>
+                            <a onclick="clearMsg();" class="btn btn-default">清屏</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col-sm-8">
+                <h4>接收的信息</h4>
+                <table class='table'>
+                    <thead>
+                        <tr>
+                            <th>信息</th>
+                        </tr>
+                    </thead>
+                    <tbody id='msg'>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script type='text/javascript'>
+        // Create a client instance
+        var client = null;
+        var topic;
+        var msg = '';
+        var intv = null;
+        var file = null;
+        var j = 1;
+        var type = 'json';
+        var data = [{
+            topic: 'publish_topic/xianjiyun_test',
+            iCfgVer: 10,
+            iMsgStamp: 0,
+            uMsgId: 3,
+            uReserve: 10,
+            iSensorId: 10,
+            iCount: 1,
+            iPlcId: 1,
+            values: 10,
+            uTimeStamp: 0
+        }];
+
+        function myconnect() {
+            if (client != null) {
+                alert('MQTT已连接！');
+                return;
+            }
+            var ip = $('#ip').val();
+            var port = $('#port').val();
+            var clientId = $('#clientId').val();
+            var password = $('#password').val();
+            var username = $('#username').val();
+            topic = $('#topic').val();
+
+            client = new Paho.MQTT.Client(ip, Number(port), clientId);
+
+            // set callback handlers
+            client.onConnectionLost = onConnectionLost;
+            client.onMessageArrived = onMessageArrived;
+
+            // connect the client
+
+            var options = {
+                onSuccess: onConnect,
+                userName: username,
+                password: password,
+                onFailure: onFailure
+            }
+            client.connect(options);
+        }
+
+        // called when the client connects
+        function onConnect() {
+            // Once a connection has been made, make a subscription and send a message.
+            console.log("onConnect");
+            client.subscribe(topic);
+            $('#connect').attr('class', 'glyphicon glyphicon-record text-success').attr('title', '已连接')
+            $('#connectBtn').attr('class','hidden');
+            $('#disConnectBtn').attr('class','btn btn-default');
+            console.log('连接成功');
+            // sendMesg();
+        }
+
+        function onFailure(err) {
+            client = null;
+            alert('连接失败');
+            console.log('连接失败')
+            console.log(err);
+        }
+
+
+
+        function sendMesg(msg) {
+            message = new Paho.MQTT.Message(msg);
+            message.destinationName = topic;
+            client.send(message);
+        }
+
+        // called when the client loses its connection
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("onConnectionLost:" + responseObject.errorMessage);
+            }
+        }
+
+        // called when a message arrives
+        function onMessageArrived(message) {
+            console.log("onMessageArrived:" + message.payloadString);
+            var html = '<tr><td>' + message.payloadString + '</td></tr>';
+            $('#msg').append(html);
+        }
+
+        function disconnect(){
+            stopSend();
+            client.disconnect();
+            client = null;
+            $('#connect').attr('class', 'glyphicon glyphicon-record text-danger').attr('title', '未连接');
+            $('#connectBtn').attr('class','btn btn-default');
+            $('#disConnectBtn').attr('class','hidden');
+            console.log('断开成功');
+        }
+        function startSend() {
+            if (client == null) {
+                alert('MQTT未连接！');
+                return;
+            }
+            var i = 0;
+            var l = data.length;
+            var d = null;
+            intv = setInterval(function () {
+                if (type == 'json') {
+                    d = new Date();
+                    data[i].iMsgStamp = d.getTime();
+                    data[i].uTimeStamp = d.getTime();
+
+                    if (file == null) {
+                        data[i].iCount = j;
+                        data[i].values = dealValue();
+                    }
+					sendMesg(JSON.stringify(data[i]));
+                }else{
+                    var list = data[i].split(',');
+                    var s = '';
+                    d = new Date();
+                    list[0] = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds();
+                    var s = list.join(',');
+					sendMesg(s);
+				}
+                
+                if (i < l - 1) {
+                    i++;
+                } else {
+                    i = 0;
+                }
+
+            }, 1000);
+            console.log('开始发送');
+        }
+
+        function stopSend() {
+            clearInterval(intv);
+            intv = null;
+            console.log('停止成功');
+        }
+
+        function dealValue() {
+            var value = Math.floor($('#random_1').val() + Math.random() * ($('#random_2').val() - $('#random_1').val()));
+            value += ',';
+            $('.add-value').each(function (item) {
+                if ($(this).val() != '') {
+                    value += $(this).val() + ',';
+                }
+            });
+            return value.substring(0, value.length - 1);
+        }
+
+        function addValue() {
+            j++;
+            var html = '<div class="form-group">' +
+                '<label class="col-sm-4 control-label">data' + j + '</label>' +
+                '<div class="col-sm-8">' +
+                '<input type="number" class="form-control add-value" value="0">' +
+                '</div>' +
+                '</div>';
+            $('#add-div').append(html);
+        }
+
+        function clearMsg() {
+            $('#msg').html('');
+        }
+
+        function importData(files) {
+            if (files.length) {
+                file = files[0];
+                var arr = file.name.split('.');
+                type = arr[arr.length - 1];
+                if (type == 'json' || type == 'csv') {
+                    var reader = new FileReader();//new一个FileReader实例
+                    reader.onload = function () {
+                        console.log(this.result);
+                        if (type == 'json') {
+                            data = JSON.parse(this.result);
+                        } else {
+                            dealCsvData(this.result);
+                        }
+                        //data = this.result;
+                        console.log(data);
+                    }
+                    reader.readAsText(file);
+                } else {
+                    file = null;
+                    alert('文件格式必须为json或者csv');
+                }
+            }
+        }
+
+        function dealCsvData(csvData) {
+            var arr = csvData.split('\n');
+            var s = arr.shift();
+            var mdata = data[0];
+            data = [];
+            arr.forEach(function (item) {
+                var list = item.split(',');
+                var s = '';
+                var d = new Date();
+
+                list[0] = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds;
+                var s = list.join(',');
+                data.push(s);
+            });
+            console.log('csv数据加载完成');
+        }
+    </script>
+</body>
+
+</html>
